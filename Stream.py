@@ -3,26 +3,29 @@ import pandas as pd
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime
 from sklearn.neural_network import MLPRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error
 import streamlit as st
 import joblib
+import matplotlib.patheffects as path_effects
+import seaborn as sns
+
+
+
 
 # Titre en grand, en vert et avec une police moderne
-st.markdown("<h1 style='text-align: center; color: #4CAF50; font-family:Arial;'>Interface de Prédiction IA</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #4CAF50; font-family:Arial;'>Interface de Prévisions IA</h1>", unsafe_allow_html=True)
 
 # Streamlit code for file upload
 uploaded_file = st.file_uploader("Choisissez votre fichier de données", type=['xlsx'])
 
 # Streamlit code for specifying date range
-st.write('Paramétrez les dates de début et de fin des prédictions')
+st.write('Paramétrez les dates de début et de fin des prévisions')
 start_date = st.date_input('Date de début', value=pd.to_datetime('2023-01-01'))
 end_date = st.date_input('Date de fin', value=pd.to_datetime('2023-12-31'))
 
@@ -178,24 +181,44 @@ if uploaded_file is not None and start_date and end_date:
     trained_models = {}
 
 
-
-
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    import numpy as np
-    from sklearn.neural_network import MLPRegressor
-    from sklearn.preprocessing import StandardScaler
-    import joblib
-
-
  
 
     # Supposons que dfs_by_category est votre dictionnaire contenant les DataFrames
     # dfs_by_category = {'A|E': df_AE, 'B': df_B, 'C': df_C, 'D': df_D}
+    
+     
     def escape_special_chars(text):
         return text.replace("|", "PIPE")
 
+    # Configuration initiale du style du graphique et de la police
+    sns.set_theme(style='darkgrid')
+    font = {'family': 'Arial', 'size': 12}  # Réduit la taille de la police à 12
+    plt.rc('font', **font)
 
+    def plot_graph(grouped, category):
+        plt.figure(figsize=(12, 8))  
+        ax = grouped.plot(kind='bar', color=['#1f77b4', '#ff7f0e'])
+        plt.title(f'Catégorie de pneu : {category} (Mensuel)')
+        plt.xlabel('Mois')
+        plt.ylabel('Poids Net Total')
+        plt.ylim([0, grouped[['Predicted', 'Real']].max().max() + 10])
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='x-small')  # Taille réduite de la légende
+        plt.tight_layout(rect=[0, 0, 0.85, 1])
+        st.pyplot(plt)  # Affiche le graphique dans Streamlit
+
+    def generate_html_table(dataframe):
+        styler = dataframe.style.set_table_attributes('class="table table-hover"').set_properties(**{
+            'background-color': '#f1f1f1',
+            'color': '#34495e',
+            'border': '1px solid black',
+            'font-size': '14pt',
+            'text-align': 'center'
+        }).bar(subset=['Prédit', 'Réel'], color='#5fba7d')
+        return styler.to_html()
+
+    
+    
+    
     def predict_future(df, category):
         
         # Préparer les variables
@@ -254,14 +277,8 @@ if uploaded_file is not None and start_date and end_date:
         total_error_rate = np.abs(total_predicted - total_real) / total_real * 100  # en pourcentage
 
         # Diagramme à barres mensuels
-        plt.figure(figsize=(10, 6))
-        grouped.plot(kind='bar')
-        plt.title(f'Catégorie de pneu : {category} (Mensuel)')
-        plt.xlabel('Mois')
-        plt.ylabel('Poids Net Total')
-        plt.legend()
-        plt.tight_layout()
-        st.pyplot(plt)
+        # Remplacer la section de code liée à la visualisation
+        plot_graph(grouped, category)
         
         # Groupement par mois et somme des colonnes numériques
         grouped = merged_df.groupby(merged_df['Date de la réception'].dt.to_period("M"))[['Predicted', 'Real']].sum()
@@ -274,11 +291,17 @@ if uploaded_file is not None and start_date and end_date:
 
         # Renommer les colonnes en français
         grouped.rename(columns={'Mois_Annee': 'Mois et Année', 'Predicted': 'Prédit', 'Real': 'Réel'}, inplace=True)
-
+        grouped = grouped[['Prédit', 'Réel']]
         # Calcul et affichage du tableau récapitulatif dans Streamlit
+        # Dans la partie où vous affichez le tableau dans Streamlit, remplacez par ceci :
+        # Suppression de la colonne "Date de la réception" si elle est présente dans 'grouped'
+        if 'Date de la réception' in grouped.columns:
+            grouped.drop('Date de la réception', axis=1, inplace=True)
+
         st.write(f"Tableau récapitulatif pour la catégorie {category}")
-        html = grouped.to_html(index=False)
+        html = generate_html_table(grouped)
         st.markdown(html, unsafe_allow_html=True)
+
 
         # Calculer les sommes totales pour les valeurs prédites et réelles
         total_predicted = round(filtered_grouped['Predicted'].sum(), 2)
